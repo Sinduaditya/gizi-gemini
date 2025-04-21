@@ -348,32 +348,30 @@ if "user_id" in st.session_state:
             uploaded_file = st.file_uploader("Upload label gizi", type=["jpg", "png", "jpeg"], 
                                            help="Ambil foto yang jelas dari label informasi nilai gizi pada kemasan")
             if uploaded_file:
-                # Display image with better layout
                 col1, col2 = st.columns([1, 1], gap="large")
+
                 with col1:
                     st.markdown("<div class='info-card'>", unsafe_allow_html=True)
                     img = Image.open(uploaded_file)
                     st.image(img, caption="Label Gizi Diupload", use_container_width=True)
                     st.markdown("</div>", unsafe_allow_html=True)
-                
+
                 with col2:
                     st.markdown("<div class='info-card'>", unsafe_allow_html=True)
                     st.subheader("Proses Gambar")
                     st.markdown("🔍 **Menjalankan pemindaian OCR...**")
-                    # Run OCR using OCR Space
                     with st.spinner("Memproses gambar..."):
                         nutrisi_text = extract_nutrition_text(img)
-                    
+
                     if "Error" in nutrisi_text:
                         st.error(nutrisi_text)
                     else:
                         st.success("✅ OCR Berhasil!")
                     st.markdown("</div>", unsafe_allow_html=True)
-                
-                # Show OCR results in expandable section
+
                 with st.expander("📄 Hasil Pemindaian OCR"):
                     st.text_area("Teks yang terdeteksi:", nutrisi_text, height=150)
-                
+
                 kondisi = riwayat[0]
                 ringkasan = (
                     f"Penyakit: {kondisi['penyakit_sekarang']}, "
@@ -381,38 +379,37 @@ if "user_id" in st.session_state:
                     f"Obat: {kondisi['obat_digunakan']}, "
                     f"Alergi: {kondisi['alergi']}"
                 )
-                
-                # Process with AI
+
                 st.markdown("<div class='info-card'>", unsafe_allow_html=True)
                 st.subheader("Analisis AI")
+
                 with st.spinner("🤖 Mengevaluasi kandungan gizi menggunakan AI..."):
-                    hasil_ai = check_nutrition_safety_gemini(nutrisi_text, ringkasan)
-                    # Check for 'aman' anywhere in the text, not just at the beginning
-                    aman = "aman" in hasil_ai.strip().lower() and not "tidak aman" in hasil_ai.strip().lower()
-                    status = "Aman" if aman else "Tidak Aman"
-                    
-                    # Rekomendasi makanan sehat
-                    rekomendasi = recommend_foods_gemini(nutrisi_text,ringkasan)
+                    # ✅ Gunakan fungsi yang sudah diperbarui agar hasil lebih akurat & terstruktur
+                    status, alasan = check_nutrition_safety_gemini(nutrisi_text, ringkasan)
+                    aman = status.lower() == "aman"
+
+                    # Rekomendasi menggunakan hasil status & alasan dari atas
+                    rekomendasi = recommend_foods_gemini(status, alasan, ringkasan)
+
                 st.markdown("</div>", unsafe_allow_html=True)
-                
-                # Display results with improved cards
+
+                # Hasil Analisis
                 st.subheader("🧠 Hasil Analisis")
-                
                 if aman:
                     st.markdown(f"""
                     <div class='success-card'>
                         <h3 style='margin-top: 0; color: {primary_green};'>✅ Makanan ini AMAN untuk Anda</h3>
-                        <p style='margin-bottom: 0;'>{hasil_ai}</p>
+                        <p style='margin-bottom: 0;'>Status: {status}<br>Alasan: {alasan}</p>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown(f"""
                     <div class='warning-card'>
                         <h3 style='margin-top: 0; color: {secondary_orange};'>⚠️ Makanan ini TIDAK AMAN untuk Anda</h3>
-                        <p style='margin-bottom: 0;'>{hasil_ai}</p>
+                        <p style='margin-bottom: 0;'>Status: {status}<br>Alasan: {alasan}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                
+
                 # Rekomendasi
                 st.subheader("🥗 Rekomendasi Makanan Sehat")
                 st.markdown(f"""
@@ -420,20 +417,21 @@ if "user_id" in st.session_state:
                     <p style='margin-bottom: 0;'>{rekomendasi}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                # Save results
+
+                # Simpan ke Supabase
                 kategori_makanan = "Sehat" if aman else "Junk"
                 supabase.table("scan_gizi").insert({
                     "user_id": user_id,
                     "created_at": datetime.utcnow().isoformat(),
                     "hasil_ocr": nutrisi_text,
                     "status": status,
-                    "alasan": hasil_ai,
+                    "alasan": alasan,
                     "rekomendasi": rekomendasi,
                     "kategori": kategori_makanan
                 }).execute()
-                
+
                 st.success("✅ Hasil telah disimpan ke riwayat Anda.")
+
     # Tab 2: Health History
     with tab2:
         st.header("📝 Riwayat Kesehatan")
@@ -537,7 +535,15 @@ if "user_id" in st.session_state:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown("<div class='info-card'>", unsafe_allow_html=True)
                 st.markdown(f"<h3 style='margin-top: 0;'>Perbandingan Konsumsi</h3>", unsafe_allow_html=True)
-                st.progress(healthy_pct/100)
+                
+                # Combined progress bar for healthy and junk food
+                st.markdown(f"""
+                <div style='position: relative; height: 20px; background-color: #ddd; border-radius: 10px; overflow: hidden;'>
+                    <div style='position: absolute; height: 100%; width: {healthy_pct}%; background-color: {primary_green};'></div>
+                    <div style='position: absolute; height: 100%; width: {junk_pct}%; background-color: {secondary_orange}; left: {healthy_pct}%;'></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 st.markdown(f"""
                 <div style='display: flex; justify-content: space-between;'>
                     <span style='color: {primary_green}; font-weight: 500;'>{healthy_pct}% Sehat</span>
