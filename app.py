@@ -52,8 +52,7 @@ def extract_nutrition_text(image):
         if os.path.exists(temp_img_path):
             os.remove(temp_img_path)
 
-# Set up custom theme colors from the 
-# Cam logo
+# Set up custom theme colors from the NutriCam logo
 primary_green = "#2E8B57"  # Dark green from logo
 secondary_orange = "#FFA500"  # Orange from logo
 light_green = "#4CAF50"  # Lighter green for accents
@@ -322,41 +321,55 @@ if "user_id" in st.session_state:
     # Tab 1: Scanner
     with tab1:
         st.header("Pindai Label Gizi")
-        st.markdown("Unggah foto label nutrisi dari kemasan makanan untuk analisis.")
         
-        uploaded_file = st.file_uploader("Upload label gizi", type=["jpg", "png", "jpeg"], 
-                                       help="Ambil foto yang jelas dari label informasi nilai gizi pada kemasan")
-        if uploaded_file:
-            # Display image with better layout
-            col1, col2 = st.columns([1, 1], gap="large")
-            with col1:
-                st.markdown("<div class='info-card'>", unsafe_allow_html=True)
-                img = Image.open(uploaded_file)
-                st.image(img, caption="Label Gizi Diupload", use_column_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+        # Check if user has health history FIRST
+        riwayat = supabase.table("riwayat_kesehatan").select("*").eq("user_id", user_id).execute().data
+        
+        if not riwayat:
+            # Show warning and prevent scanning if health history is not available
+            st.markdown(f"""
+            <div class='warning-card'>
+                <h3 style='margin-top: 0;'>⚠️ Riwayat Kesehatan Belum Tersedia</h3>
+                <p style='margin-bottom: 0;'>Anda harus mengisi riwayat kesehatan terlebih dahulu sebelum dapat memindai label gizi.</p>
+                <p style='margin-top: 10px;'>Silakan isi riwayat kesehatan Anda di tab <strong>📝 Riwayat Kesehatan</strong> untuk mendapatkan analisis yang personal.</p>
+            </div>
+            """, unsafe_allow_html=True)
             
-            with col2:
-                st.markdown("<div class='info-card'>", unsafe_allow_html=True)
-                st.subheader("Proses Gambar")
-                st.markdown("🔍 **Menjalankan pemindaian OCR...**")
-                # Run OCR using OCR Space
-                with st.spinner("Memproses gambar..."):
-                    nutrisi_text = extract_nutrition_text(img)
+            st.markdown("<br>", unsafe_allow_html=True)
                 
-                if "Error" in nutrisi_text:
-                    st.error(nutrisi_text)
-                else:
-                    st.success("✅ OCR Berhasil!")
-                st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            # If health history exists, allow scanning functionality
+            st.markdown("Unggah foto label nutrisi dari kemasan makanan untuk analisis.")
             
-            # Show OCR results in expandable section
-            with st.expander("📄 Hasil Pemindaian OCR"):
-                st.text_area("Teks yang terdeteksi:", nutrisi_text, height=150)
-            
-            # Check if user has health history
-            riwayat = supabase.table("riwayat_kesehatan").select("*").eq("user_id", user_id).execute().data
-            
-            if riwayat:
+            uploaded_file = st.file_uploader("Upload label gizi", type=["jpg", "png", "jpeg"], 
+                                           help="Ambil foto yang jelas dari label informasi nilai gizi pada kemasan")
+            if uploaded_file:
+                # Display image with better layout
+                col1, col2 = st.columns([1, 1], gap="large")
+                with col1:
+                    st.markdown("<div class='info-card'>", unsafe_allow_html=True)
+                    img = Image.open(uploaded_file)
+                    st.image(img, caption="Label Gizi Diupload", use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown("<div class='info-card'>", unsafe_allow_html=True)
+                    st.subheader("Proses Gambar")
+                    st.markdown("🔍 **Menjalankan pemindaian OCR...**")
+                    # Run OCR using OCR Space
+                    with st.spinner("Memproses gambar..."):
+                        nutrisi_text = extract_nutrition_text(img)
+                    
+                    if "Error" in nutrisi_text:
+                        st.error(nutrisi_text)
+                    else:
+                        st.success("✅ OCR Berhasil!")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Show OCR results in expandable section
+                with st.expander("📄 Hasil Pemindaian OCR"):
+                    st.text_area("Teks yang terdeteksi:", nutrisi_text, height=150)
+                
                 kondisi = riwayat[0]
                 ringkasan = (
                     f"Penyakit: {kondisi['penyakit_sekarang']}, "
@@ -370,7 +383,8 @@ if "user_id" in st.session_state:
                 st.subheader("Analisis AI")
                 with st.spinner("🤖 Mengevaluasi kandungan gizi menggunakan AI..."):
                     hasil_ai = check_nutrition_safety_gemini(nutrisi_text, ringkasan)
-                    aman = hasil_ai.strip().lower().startswith("aman")
+                    # Check for 'aman' anywhere in the text, not just at the beginning
+                    aman = "aman" in hasil_ai.strip().lower() and not "tidak aman" in hasil_ai.strip().lower()
                     status = "Aman" if aman else "Tidak Aman"
                     
                     # Rekomendasi makanan sehat
@@ -416,15 +430,6 @@ if "user_id" in st.session_state:
                 }).execute()
                 
                 st.success("✅ Hasil telah disimpan ke riwayat Anda.")
-                
-            else:
-                st.markdown(f"""
-                <div class='warning-card'>
-                    <h3 style='margin-top: 0;'>⚠️ Riwayat Kesehatan Belum Tersedia</h3>
-                    <p style='margin-bottom: 0;'>Anda belum mengisi riwayat kesehatan. Silakan isi di tab Riwayat Kesehatan untuk mendapatkan analisis yang personal.</p>
-                </div>
-                """, unsafe_allow_html=True)
-    
     # Tab 2: Health History
     with tab2:
         st.header("📝 Riwayat Kesehatan")

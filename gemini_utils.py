@@ -24,10 +24,6 @@ Berikan jawaban dengan format berikut:
 Status: [Aman / Tidak Aman]  
 Alasan: [Penjelasan singkat mengapa makanan tersebut aman atau tidak, maksimal 2 kalimat]
 
-Contoh output yang diharapkan:
-Status: Tidak Aman  
-Alasan: Kandungan natrium terlalu tinggi bagi penderita hipertensi.
-
 Sekarang, berikan penilaianmu:
 """
     try:
