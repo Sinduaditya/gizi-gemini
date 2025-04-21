@@ -336,6 +336,10 @@ if "user_id" in st.session_state:
             """, unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Adding rerun button
+            if st.button("Refresh Halaman", key="refresh_button"):
+                st.rerun()
                 
         else:
             # If health history exists, allow scanning functionality
