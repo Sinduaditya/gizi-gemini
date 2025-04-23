@@ -247,8 +247,8 @@ with st.sidebar:
     
     with auth_tabs[0]:  # Login Tab
         st.markdown("<div class='info-card'>", unsafe_allow_html=True)
-        username_login = st.text_input("Username", key="login_username")
-        password_login = st.text_input("Password", type="password", key="login_password")
+        username_login = st.text_input("Username", key="login_username", placeholder="Masukkan username")
+        password_login = st.text_input("Password", type="password", key="login_password" , placeholder="Masukkan password")
         
         login_col1, login_col2 = st.columns([3, 1])
         with login_col1:
@@ -270,9 +270,9 @@ with st.sidebar:
     
     with auth_tabs[1]:  # Register Tab
         st.markdown("<div class='info-card'>", unsafe_allow_html=True)
-        username_reg = st.text_input("Username", key="reg_username")
-        password_reg = st.text_input("Password", type="password", key="reg_password")
-        nama = st.text_input("Nama Lengkap")
+        username_reg = st.text_input("Username", key="reg_username", placeholder="Pilih username unik")
+        password_reg = st.text_input("Password", type="password", key="reg_password" , placeholder="Minimal 8 karakter")
+        nama = st.text_input("Nama Lengkap", placeholder="Nama Lengkap Anda")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -320,7 +320,7 @@ if "user_id" in st.session_state:
     
     # Tab 1: Scanner
     with tab1:
-        st.header("Pindai Label Gizi")
+        st.header("📷 Pindai Label Gizi")
         
         # Check if user has health history FIRST
         riwayat = supabase.table("riwayat_kesehatan").select("*").eq("user_id", user_id).execute().data
@@ -335,31 +335,36 @@ if "user_id" in st.session_state:
             </div>
             """, unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Adding rerun button
-            if st.button("Refresh Halaman", key="refresh_button"):
-                st.rerun()
+            # Adding rerun button with better positioning
+            col1, col2, col3 = st.columns([2, 1, 2])
+            with col2:
+                if st.button("🔄 Refresh Halaman", key="refresh_button", use_container_width=True):
+                    st.rerun()
                 
         else:
             # If health history exists, allow scanning functionality
-            st.markdown("Unggah foto label nutrisi dari kemasan makanan untuk analisis.")
+            st.markdown("<div class='info-card'>", unsafe_allow_html=True)
+            st.markdown("📸 Unggah foto label nutrisi dari kemasan makanan untuk mendapatkan analisis kesehatan personal.")
             
             uploaded_file = st.file_uploader("Upload label gizi", type=["jpg", "png", "jpeg"], 
                                            help="Ambil foto yang jelas dari label informasi nilai gizi pada kemasan")
+            st.markdown("</div>", unsafe_allow_html=True)
+            
             if uploaded_file:
-                col1, col2 = st.columns([1, 1], gap="large")
+                # Image and OCR processing section
+                st.markdown("<br>", unsafe_allow_html=True)
+                col1, col2 = st.columns([1, 1], gap="medium")
 
                 with col1:
-                    st.markdown("<div class='info-card'>", unsafe_allow_html=True)
+                    st.markdown("<div class='nutri-card'>", unsafe_allow_html=True)
+                    st.markdown("<h3>🖼️ Gambar Label</h3>", unsafe_allow_html=True)
                     img = Image.open(uploaded_file)
-                    st.image(img, caption="Label Gizi Diupload", use_container_width=True)
+                    st.image(img, caption="Label Gizi", use_container_width=True)
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 with col2:
-                    st.markdown("<div class='info-card'>", unsafe_allow_html=True)
-                    st.subheader("Proses Gambar")
-                    st.markdown("🔍 **Menjalankan pemindaian OCR...**")
+                    st.markdown("<div class='nutri-card'>", unsafe_allow_html=True)
+                    st.markdown("<h3>🔍 Hasil Pemindaian</h3>", unsafe_allow_html=True)
                     with st.spinner("Memproses gambar..."):
                         nutrisi_text = extract_nutrition_text(img)
 
@@ -367,11 +372,12 @@ if "user_id" in st.session_state:
                         st.error(nutrisi_text)
                     else:
                         st.success("✅ OCR Berhasil!")
+                        
+                    with st.expander("Lihat Teks Hasil OCR"):
+                        st.text_area("Teks yang terdeteksi:", nutrisi_text, height=150)
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                with st.expander("📄 Hasil Pemindaian OCR"):
-                    st.text_area("Teks yang terdeteksi:", nutrisi_text, height=150)
-
+                # Get health data for AI analysis
                 kondisi = riwayat[0]
                 ringkasan = (
                     f"Penyakit: {kondisi['penyakit_sekarang']}, "
@@ -380,107 +386,198 @@ if "user_id" in st.session_state:
                     f"Alergi: {kondisi['alergi']}"
                 )
 
-                st.markdown("<div class='info-card'>", unsafe_allow_html=True)
-                st.subheader("Analisis AI")
-
-                with st.spinner("🤖 Mengevaluasi kandungan gizi menggunakan AI..."):
-                    # ✅ Gunakan fungsi yang sudah diperbarui agar hasil lebih akurat & terstruktur
+                # AI Analysis process
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.subheader("🤖 Analisis Kecerdasan Buatan")
+                
+                with st.spinner("Mengevaluasi kandungan gizi menggunakan AI..."):
                     status, alasan = check_nutrition_safety_gemini(nutrisi_text, ringkasan)
                     aman = status.lower() == "aman"
-
-                    # Rekomendasi menggunakan hasil status & alasan dari atas
                     rekomendasi = recommend_foods_gemini(status, alasan, ringkasan)
 
-                st.markdown("</div>", unsafe_allow_html=True)
-
-                # Hasil Analisis
-                st.subheader("🧠 Hasil Analisis")
-                if aman:
+                # Result cards with clearer separation
+                st.markdown("<br>", unsafe_allow_html=True)
+                col1, col2 = st.columns([1, 1], gap="medium")
+                
+                with col1:
+                    # Safety status result
+                    if aman:
+                        st.markdown(f"""
+                        <div class='success-card'>
+                            <h3 style='margin-top: 0; color: {primary_green};'>✅ AMAN DIKONSUMSI</h3>
+                            <p style='margin-bottom: 0;'><strong>Status:</strong> {status}</p>
+                            <p style='margin-bottom: 0;'><strong>Alasan:</strong> {alasan}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div class='warning-card'>
+                            <h3 style='margin-top: 0; color: {secondary_orange};'>⚠️ TIDAK DIREKOMENDASIKAN</h3>
+                            <p style='margin-bottom: 0;'><strong>Status:</strong> {status}</p>
+                            <p style='margin-bottom: 0;'><strong>Alasan:</strong> {alasan}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                with col2:
+                    # Recommendations
                     st.markdown(f"""
-                    <div class='success-card'>
-                        <h3 style='margin-top: 0; color: {primary_green};'>✅ Makanan ini AMAN untuk Anda</h3>
-                        <p style='margin-bottom: 0;'>Status: {status}<br>Alasan: {alasan}</p>
+                    <div class='nutri-card' style='height: 100%;'>
+                        <h3 style='margin-top: 0;'>🥗 Rekomendasi Makanan</h3>
+                        <p style='margin-bottom: 0;'>{rekomendasi}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class='warning-card'>
-                        <h3 style='margin-top: 0; color: {secondary_orange};'>⚠️ Makanan ini TIDAK AMAN untuk Anda</h3>
-                        <p style='margin-bottom: 0;'>Status: {status}<br>Alasan: {alasan}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
 
-                # Rekomendasi
-                st.subheader("🥗 Rekomendasi Makanan Sehat")
-                st.markdown(f"""
-                <div class='info-card'>
-                    <p style='margin-bottom: 0;'>{rekomendasi}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Simpan ke Supabase
-                kategori_makanan = "Sehat" if aman else "Junk"
-                supabase.table("scan_gizi").insert({
-                    "user_id": user_id,
-                    "created_at": datetime.utcnow().isoformat(),
-                    "hasil_ocr": nutrisi_text,
-                    "status": status,
-                    "alasan": alasan,
-                    "rekomendasi": rekomendasi,
-                    "kategori": kategori_makanan
-                }).execute()
-
-                st.success("✅ Hasil telah disimpan ke riwayat Anda.")
+                # Save to database with progress indicator
+                st.markdown("<br>", unsafe_allow_html=True)
+                col1, col2, col3 = st.columns([2, 3, 2])
+                with col2:
+                    with st.spinner("Menyimpan hasil analisis..."):
+                        kategori_makanan = "Sehat" if aman else "Junk"
+                        supabase.table("scan_gizi").insert({
+                            "user_id": user_id,
+                            "created_at": datetime.utcnow().isoformat(),
+                            "hasil_ocr": nutrisi_text,
+                            "status": status,
+                            "alasan": alasan,
+                            "rekomendasi": rekomendasi,
+                            "kategori": kategori_makanan
+                        }).execute()
+                        
+                    st.success("✅ Hasil telah disimpan ke riwayat Anda")
 
     # Tab 2: Health History
     with tab2:
         st.header("📝 Riwayat Kesehatan")
         st.markdown("Isi informasi kesehatan Anda untuk mendapatkan analisis yang sesuai dengan kondisi Anda.")
-        
-        # Check if user already has health record
+
+        # Ambil data lama kalau ada
         existing_record = supabase.table("riwayat_kesehatan").select("*").eq("user_id", user_id).execute().data
-        
+
         st.markdown("<div class='info-card'>", unsafe_allow_html=True)
+        
+        # Section 1: Kondisi Kesehatan Saat Ini
+        st.markdown("<h3>🏥 Kondisi Kesehatan Saat Ini</h3>", unsafe_allow_html=True)
+        
         col1, col2 = st.columns(2)
         with col1:
             penyakit_sekarang = st.text_input("Penyakit Sekarang", 
                                              value=existing_record[0]['penyakit_sekarang'] if existing_record else "")
-            gejala = st.text_input("Gejala Dirasakan",
-                                  value=existing_record[0]['gejala'] if existing_record else "")
-            penyakit_lalu = st.text_input("Penyakit Sebelumnya",
-                                         value=existing_record[0]['penyakit_sebelumnya'] if existing_record else "")
-            tahun_sakit = st.text_input("Tahun Terkena Penyakit",
-                                       value=existing_record[0]['tahun_sakit'] if existing_record else "")
         
         with col2:
-            obat_digunakan = st.text_input("Obat yang Digunakan",
+            obat_digunakan = st.text_input("Obat yang Digunakan", 
                                           value=existing_record[0]['obat_digunakan'] if existing_record else "")
-            dosis = st.text_input("Dosis / Frekuensi Obat",
+            dosis = st.text_input("Dosis / Frekuensi Obat", 
                                  value=existing_record[0]['dosis'] if existing_record else "")
-            alergi = st.text_input("Riwayat Alergi",
+        
+        # Daftar opsi gejala
+        opsi_gejala = [
+            "Diare", "Mual dan Muntah", "Sakit/Kram Perut", "Kelelahan", 
+            "Penurunan Berat Badan", "Demam", "Ruam/Gatal/Pembengkakan (Alergi)",
+            "Gejala pencernaan (seperti heartburn, regurgitasi, perut kembung)",
+            "Masalah buang air kecil", "Nyeri sendi"
+        ]
+
+        # Pastikan hanya nilai valid dari database yang dipakai
+        default = [
+            g.strip() for g in existing_record[0]['gejala'].split(',')
+            if g.strip() in opsi_gejala
+        ] if existing_record and existing_record[0]['gejala'] else []
+
+        # Multiselect gejala
+        st.markdown("<br>", unsafe_allow_html=True)
+        selected_gejala = st.multiselect(
+            "Gejala yang Dirasakan",
+            options=opsi_gejala,
+            default=default
+        )
+        
+        # Section 2: Riwayat Medis
+        st.markdown("<hr style='margin: 1.5rem 0'>", unsafe_allow_html=True)
+        st.markdown("<h3>📜 Riwayat Medis</h3>", unsafe_allow_html=True)
+        
+        # List of disease options
+        penyakit_options = [
+            "Obesitas", "Diabetes tipe 2", "Penyakit jantung", "Hipertensi", "Keracunan makanan",
+            "Gastroenteritis", "Alergi makanan", "Penyakit hati (misalnya Hepatitis)", "Asam lambung (GERD)",
+            "Penyakit ginjal", "Dislipidemia (kolesterol tinggi)", "Gout (asam urat)",
+            "Penyakit celiac", "Penyakit Crohn dan kolitis ulseratif", "Kanker", "Tidak ada"
+        ]
+        
+        # Parse existing values for multiselect default
+        default_penyakit = []
+        if existing_record and existing_record[0]['penyakit_sebelumnya']:
+            # Split by comma if exists, otherwise use as single item
+            if ',' in existing_record[0]['penyakit_sebelumnya']:
+                default_penyakit = [p.strip() for p in existing_record[0]['penyakit_sebelumnya'].split(',')]
+            else:
+                default_penyakit = [existing_record[0]['penyakit_sebelumnya']]
+            # Make sure all values exist in options list
+            default_penyakit = [p for p in default_penyakit if p in penyakit_options]
+
+        penyakit_lalu = st.multiselect(
+            "Penyakit yang Pernah Dialami",
+            options=penyakit_options,
+            default=default_penyakit
+        )
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            tahun_sakit = st.text_input("Tahun Terkena Penyakit", 
+                                       value=str(existing_record[0]['tahun_sakit']) if existing_record and existing_record[0]['tahun_sakit'] else "")
+        with col2:
+            alergi = st.text_input("Riwayat Alergi", 
                                   value=existing_record[0]['alergi'] if existing_record else "")
-            keluarga = st.text_input("Riwayat Penyakit Keluarga",
+        with col3:
+            keluarga = st.text_input("Riwayat Penyakit Keluarga", 
                                     value=existing_record[0]['riwayat_keluarga'] if existing_record else "")
         
+        # Section 3: Data Vital
+        st.markdown("<hr style='margin: 1.5rem 0'>", unsafe_allow_html=True)
+        st.markdown("<h3>📊 Data Vital</h3>", unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            berat_badan = st.text_input("Berat Badan (kg)", 
+                                      value=existing_record[0].get('berat_badan', '') if existing_record else "")
+            suhu_tubuh = st.text_input("Suhu Tubuh (°C)", 
+                                     value=existing_record[0].get('suhu_tubuh', '') if existing_record else "")
+        with col2:
+            tinggi_badan = st.text_input("Tinggi Badan (cm)", 
+                                       value=existing_record[0].get('tinggi_badan', '') if existing_record else "")
+            denyut_nadi = st.text_input("Denyut Nadi (bpm)", 
+                                      value=existing_record[0].get('denyut_nadi', '') if existing_record else "")
+        with col3:
+            tekanan_darah = st.text_input("Tekanan Darah (mmHg)", 
+                                        value=existing_record[0].get('tekanan_darah', '') if existing_record else "")
+
+        # Button Section
         st.markdown("<br/>", unsafe_allow_html=True)
-        if st.button("Simpan Riwayat", use_container_width=True):
-            try:
-                supabase.table("riwayat_kesehatan").upsert({
-                    "user_id": user_id,
-                    "penyakit_sekarang": penyakit_sekarang,
-                    "gejala": gejala,
-                    "penyakit_sebelumnya": penyakit_lalu,
-                    "tahun_sakit": int(tahun_sakit) if tahun_sakit.isdigit() else None,
-                    "obat_digunakan": obat_digunakan,
-                    "dosis": dosis,
-                    "alergi": alergi,
-                    "riwayat_keluarga": keluarga
-                }).execute()
-                st.success("✅ Riwayat kesehatan berhasil disimpan!")
-            except Exception as e:
-                st.error(f"Gagal menyimpan riwayat: {str(e)}")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("💾 Simpan Riwayat Kesehatan", use_container_width=True):
+                try:
+                    supabase.table("riwayat_kesehatan").upsert({
+                        "user_id": user_id,
+                        "penyakit_sekarang": penyakit_sekarang,
+                        "gejala": ", ".join(selected_gejala),
+                        "penyakit_sebelumnya": penyakit_lalu,
+                        "tahun_sakit": int(tahun_sakit) if tahun_sakit.isdigit() else None,
+                        "obat_digunakan": obat_digunakan,
+                        "dosis": dosis,
+                        "alergi": alergi,
+                        "riwayat_keluarga": keluarga,
+                        "suhu_tubuh": suhu_tubuh,
+                        "berat_badan": berat_badan,
+                        "tinggi_badan": tinggi_badan,
+                        "denyut_nadi": denyut_nadi,
+                        "tekanan_darah": tekanan_darah
+                    }).execute()
+                    st.success("✅ Riwayat kesehatan berhasil disimpan!")
+                except Exception as e:
+                    st.error(f"Gagal menyimpan riwayat: {str(e)}")
+
         st.markdown("</div>", unsafe_allow_html=True)
-    
+
     # Tab 3: Monthly Recap
     with tab3:
         st.header("📊 Rekap Bulanan")
@@ -580,30 +677,32 @@ if "user_id" in st.session_state:
 else:
     # If user is not logged in, show welcome page with improved design
     st.markdown(f"""
-    <div style='text-align: center; padding: 1rem 0 2rem 0;'>
-        <h1 style='font-size: 3rem; margin-bottom: 1rem;'>
+    <div style='text-align: center; padding: 2rem 0 3rem 0;'>
+        <h1 style='font-size: 3.5rem; margin-bottom: 1rem;'>
             <span class='welcome-brand'>Nutri</span><span class='cam-text'>Cam</span>
         </h1>
-        <p style='font-size: 1.3rem; margin-bottom: 2rem;'>
-            Aplikasi pemindai gizi berbasis AI untuk membantu Anda membuat keputusan makan yang lebih sehat
+        <p style='font-size: 1.5rem; margin-bottom: 2rem; color: {light_text}; max-width: 800px; margin-left: auto; margin-right: auto;'>
+            Panduan makanan sehat di genggaman Anda - Scan, Analisis, Jaga Kesehatan!
         </p>
-        <div style='margin: 2rem auto; max-width: 600px;'>
-            <img src="./assets/logoNutriCam.jpg" style='max-width: 100%; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);'>
-        </div>
-        <p style='font-size: 1.2rem; font-weight: 500; color: {light_text};'>Silakan login atau register untuk mulai menggunakan NutriCam</p>
+        <div style='display: inline-block; text-decoration: none; background-color: {primary_green}; color: white; padding: 12px 30px; border-radius: 30px; font-size: 1.2rem; font-weight: 500; margin-top: 1rem; box-shadow: 0 4px 15px rgba(46,139,87,0.3); transition: all 0.3s;'>Mulai Sekarang </div>
     </div>
     """, unsafe_allow_html=True)
     
+    
     # Feature highlights with improved cards
-    st.markdown("<h2 style='text-align: center; margin-top: 3rem;'>Fitur Utama</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 1rem;'>Fitur Utama</h2>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3, gap="large")
     
     with col1:
         st.markdown(f"""
-        <div class='nutri-card'>
+        <div class='nutri-card' style='border-top: 5px solid {primary_green};'>
             <h3 style='color: {primary_green};'>📷 Scan Label Gizi</h3>
             <p>Pindai label nutrisi dari kemasan makanan dengan teknologi OCR canggih yang akurat dan cepat</p>
+            <ul style='text-align: left; padding-left: 1.2rem; margin-top: 1rem;'>
+                <li>Hasil instan</li>
+                <li>Simpan riwayat scan</li>
+            </ul>
             <div style='flex-grow: 1;'></div>
             <p style='text-align: center; font-size: 2.5rem; margin: 1rem 0 0 0;'>📱</p>
         </div>
@@ -611,9 +710,13 @@ else:
         
     with col2:
         st.markdown(f"""
-        <div class='nutri-card'>
-            <h3 style='color: {primary_green};'>🤖 Analisis AI</h3>
+        <div class='nutri-card' style='border-top: 5px solid {secondary_orange};'>
+            <h3 style='color: {secondary_orange};'>🤖 Analisis AI</h3>
             <p>Dapatkan evaluasi keamanan makanan dan rekomendasi berdasarkan kondisi kesehatan personal Anda</p>
+            <ul style='text-align: left; padding-left: 1.2rem; margin-top: 1rem;'>
+                <li>Analisis kesehatan personal</li>
+                <li>Deteksi alergen</li>
+            </ul>
             <div style='flex-grow: 1;'></div>
             <p style='text-align: center; font-size: 2.5rem; margin: 1rem 0 0 0;'>🧪</p>
         </div>
@@ -621,10 +724,16 @@ else:
         
     with col3:
         st.markdown(f"""
-        <div class='nutri-card'>
-            <h3 style='color: {primary_green};'>📊 Rekap Kesehatan</h3>
+        <div class='nutri-card' style='border-top: 5px solid {light_green};'>
+            <h3 style='color: {light_green};'>📊 Rekap Kesehatan</h3>
             <p>Pantau pola makan dan lihat rekap kualitas makanan bulanan dengan visualisasi yang intuitif</p>
+            <ul style='text-align: left; padding-left: 1.2rem; margin-top: 1rem;'>
+                <li>Statistik pola makan</li>
+                <li>Tren konsumsi makanan</li>
+            </ul>
             <div style='flex-grow: 1;'></div>
             <p style='text-align: center; font-size: 2.5rem; margin: 1rem 0 0 0;'>📈</p>
         </div>
         """, unsafe_allow_html=True)
+        
+   
