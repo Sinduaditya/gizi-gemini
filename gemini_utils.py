@@ -7,7 +7,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Inisialisasi model
-model = genai.GenerativeModel("gemini-1.5-pro")
+model = genai.GenerativeModel("gemini-2.0-flash")
 
 def check_nutrition_safety_gemini(text, health_data):
     prompt = f"""
